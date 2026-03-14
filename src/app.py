@@ -57,6 +57,7 @@ from src.ui_styling import apply_custom_css, render_page_header_with_info
 from src.smart_district_split import render_smart_district_split_page
 from src.ifsc_pincode_district_split import render_ifsc_pincode_district_split_page
 from src.distinct_account_pivot import render_distinct_account_pivot_page
+from src.auth import check_password, show_logout_button
 
 # Page configuration
 st.set_page_config(
@@ -1498,6 +1499,15 @@ def render_view_database_page():
 
 def main():
     """Main application entry point."""
+    
+    # Check authentication (only for deployed app)
+    # When running locally, this will be bypassed
+    if not check_password():
+        st.stop()
+    
+    # Show logout button in sidebar
+    show_logout_button()
+    
     # Initialize session state
     init_session_state()
     
