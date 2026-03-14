@@ -7,3 +7,5 @@ hypothesis
 pytest
 pytest-cov
 reportlab
+google-generativeai
+mysql-connector-python

@@ -1,0 +1,18 @@
+{
+  "_victim_col": "Acknowledgement No.",
+  "_suspect_col": "Acknowledgement No.",
+  "Acknowledgement No.": "Acknowledgement No.",
+  "Victim District": "District",
+  "Victim State": "State",
+  "Reported Amount (Victim)": "Amount Reported",
+  "Account No.": "Account No.",
+  "IFSC Code": "IFSC Code",
+  "Address": "Address",
+  "District": "District",
+  "State": "State",
+  "Pin Code": "Pin Code",
+  "Transaction Amount": "Transaction Amount",
+  "Disputed Amount": "Disputed Amount",
+  "Bank/FIs": "Bank/FIs",
+  "Layers": "Layers"
+}

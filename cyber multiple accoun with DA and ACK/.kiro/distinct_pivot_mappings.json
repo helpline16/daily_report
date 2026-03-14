@@ -1,0 +1,6 @@
+{
+  "bank_col": "Bank/FIs",
+  "account_col": "Account No.",
+  "disputed_col": "Disputed Amount",
+  "pivot_col": "-- Select --"
+}

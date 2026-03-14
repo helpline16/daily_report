@@ -16,6 +16,7 @@ import pandas as pd
 from io import BytesIO
 from typing import List, Tuple
 import time
+from src.persistent_mapping import PersistentMapping
 
 # Gujarat Districts (33 districts)
 GUJARAT_DISTRICTS = [
@@ -201,6 +202,10 @@ def render_district_download_page():
 
 def render_victim_tab():
     """Render victim data tab - Gujarat districts only."""
+    
+    # Initialize persistent mapping
+    mapping = PersistentMapping('district_data_victim')
+    
     st.subheader("📤 Upload Victim Data File")
     
     uploaded_file = st.file_uploader(
@@ -229,12 +234,21 @@ def render_victim_tab():
     
     # Select district column
     st.subheader("🔧 Select District Column")
+    
+    # Show saved mappings indicator
+    saved_count = mapping.get_saved_count()
+    if saved_count > 0:
+        st.success(f"✅ {saved_count} column mapping(s) remembered")
+    
     columns = ["-- Select Column --"] + list(df.columns)
     district_col = st.selectbox(
         "Which column contains District names?",
         options=columns,
+        index=mapping.get_default_index('district_col', columns),
         key="victim_district_col_tab1"
     )
+    if district_col != "-- Select Column --":
+        mapping.set('district_col', district_col)
     
     if district_col == "-- Select Column --":
         st.warning("⚠️ Please select the district column")
@@ -284,6 +298,10 @@ def render_victim_tab():
 
 def render_suspect_tab():
     """Render suspect data tab - All India with state filtering and search."""
+    
+    # Initialize persistent mapping
+    mapping = PersistentMapping('district_data_suspect')
+    
     st.subheader("📤 Upload Suspect Data File")
     
     uploaded_file = st.file_uploader(
@@ -312,6 +330,12 @@ def render_suspect_tab():
     
     # Select columns
     st.subheader("🔧 Select Columns")
+    
+    # Show saved mappings indicator
+    saved_count = mapping.get_saved_count()
+    if saved_count > 0:
+        st.success(f"✅ {saved_count} column mapping(s) remembered")
+    
     columns = ["-- Select Column --"] + list(df.columns)
     
     col1, col2 = st.columns(2)
@@ -319,15 +343,21 @@ def render_suspect_tab():
         district_col = st.selectbox(
             "Select District Column",
             options=columns,
+            index=mapping.get_default_index('district_col', columns),
             key="suspect_district_col_tab2"
         )
+        if district_col != "-- Select Column --":
+            mapping.set('district_col', district_col)
     with col2:
         state_col = st.selectbox(
             "Select State Column",
             options=columns,
+            index=mapping.get_default_index('state_col', columns),
             key="suspect_state_col_tab2",
             help="Required to filter data accurately by state"
         )
+        if state_col != "-- Select Column --":
+            mapping.set('state_col', state_col)
     
     if district_col == "-- Select Column --" or state_col == "-- Select Column --":
         st.warning("⚠️ Please select both District and State columns")
@@ -495,6 +525,10 @@ def render_suspect_search_section(df: pd.DataFrame, district_col: str):
 
 def render_match_tab():
     """Render Match Victim & Suspect tab - combines both files by ACK number."""
+    
+    # Initialize persistent mapping
+    mapping = PersistentMapping('district_data_match')
+    
     st.subheader("🔗 Match Victim & Suspect Data")
     st.markdown("""
     Upload both files to match records by **Acknowledgement Number (ACK)**.
@@ -547,6 +581,11 @@ def render_match_tab():
     st.markdown("---")
     st.subheader("Step 2: Map Columns")
     
+    # Show saved mappings indicator
+    saved_count = mapping.get_saved_count()
+    if saved_count > 0:
+        st.success(f"✅ {saved_count} column mapping(s) remembered")
+    
     # Column mapping for Suspect file
     st.markdown("#### Suspect File Columns")
     suspect_cols = ["-- Select Column --"] + list(suspect_df.columns)
@@ -556,20 +595,29 @@ def render_match_tab():
         suspect_ack_col = st.selectbox(
             "ACK Number Column (Suspect)",
             options=suspect_cols,
+            index=mapping.get_default_index('suspect_ack_col', suspect_cols),
             key="match_suspect_ack"
         )
+        if suspect_ack_col != "-- Select Column --":
+            mapping.set('suspect_ack_col', suspect_ack_col)
     with col2:
         suspect_district_col = st.selectbox(
             "District Column (Suspect)",
             options=suspect_cols,
+            index=mapping.get_default_index('suspect_district_col', suspect_cols),
             key="match_suspect_district"
         )
+        if suspect_district_col != "-- Select Column --":
+            mapping.set('suspect_district_col', suspect_district_col)
     with col3:
         suspect_state_col = st.selectbox(
             "State Column (Suspect)",
             options=suspect_cols,
+            index=mapping.get_default_index('suspect_state_col', suspect_cols),
             key="match_suspect_state"
         )
+        if suspect_state_col != "-- Select Column --":
+            mapping.set('suspect_state_col', suspect_state_col)
     
     # Column mapping for Victim file
     st.markdown("#### Victim File Columns")
@@ -580,26 +628,38 @@ def render_match_tab():
         victim_ack_col = st.selectbox(
             "ACK Number Column",
             options=victim_cols,
+            index=mapping.get_default_index('victim_ack_col', victim_cols),
             key="match_victim_ack"
         )
+        if victim_ack_col != "-- Select Column --":
+            mapping.set('victim_ack_col', victim_ack_col)
     with col2:
         victim_district_col = st.selectbox(
             "District Column",
             options=victim_cols,
+            index=mapping.get_default_index('victim_district_col', victim_cols),
             key="match_victim_district"
         )
+        if victim_district_col != "-- Select Column --":
+            mapping.set('victim_district_col', victim_district_col)
     with col3:
         victim_state_col = st.selectbox(
             "State Column",
             options=victim_cols,
+            index=mapping.get_default_index('victim_state_col', victim_cols),
             key="match_victim_state"
         )
+        if victim_state_col != "-- Select Column --":
+            mapping.set('victim_state_col', victim_state_col)
     with col4:
         victim_amount_col = st.selectbox(
             "Reported Amount Column",
             options=victim_cols,
+            index=mapping.get_default_index('victim_amount_col', victim_cols),
             key="match_victim_amount"
         )
+        if victim_amount_col != "-- Select Column --":
+            mapping.set('victim_amount_col', victim_amount_col)
     
     # Validate all columns selected
     required_cols = [
@@ -774,6 +834,10 @@ def render_match_results():
 
 def render_remove_duplicates_tab():
     """Render Remove Duplicates by ACK tab - keeps first entry per ACK number."""
+    
+    # Initialize persistent mapping
+    mapping = PersistentMapping('district_data_dedup')
+    
     st.subheader("🔄 Remove Duplicates by ACK Number")
     st.markdown("""
     Upload a file and remove duplicate entries based on **Acknowledgement Number (ACK)**.
@@ -807,6 +871,11 @@ def render_remove_duplicates_tab():
     st.markdown("---")
     st.subheader("🔧 Select Columns")
     
+    # Show saved mappings indicator
+    saved_count = mapping.get_saved_count()
+    if saved_count > 0:
+        st.success(f"✅ {saved_count} column mapping(s) remembered")
+    
     columns = list(df.columns)
     columns_with_none = ["-- Not Selected --"] + columns
     
@@ -815,9 +884,12 @@ def render_remove_duplicates_tab():
     ack_col = st.selectbox(
         "ACK Number Column (Required) *",
         options=["-- Select Column --"] + columns,
+        index=mapping.get_default_index('ack_col', ["-- Select Column --"] + columns),
         key="dedup_ack_col",
         help="This column will be used to identify and remove duplicates"
     )
+    if ack_col != "-- Select Column --":
+        mapping.set('ack_col', ack_col)
     
     if ack_col == "-- Select Column --":
         st.warning("⚠️ Please select the ACK Number column")

@@ -1,0 +1,14 @@
+{
+  "main_ack": "Acknowledgement No.",
+  "main_bank": "Pending With Bank/FIs",
+  "main_account": "Account No",
+  "main_txn_id": "Transaction Id / UTR Number",
+  "main_amount": "Transaction Amount",
+  "main_date": "Transaction Date",
+  "layer_ack": "Acknowledgement No.",
+  "layer_account": "Account No.",
+  "layer_disputed": "Disputed Amount",
+  "status_ack": "Acknowledgement No.",
+  "status_txn_id": "Transaction ID",
+  "status_complaint": "Complaint Date"
+}

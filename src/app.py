@@ -36,15 +36,38 @@ from src.district_data import render_district_download_page
 from src.merge_files import render_merge_files_page
 from src.excel_merger import render_excel_merger_page
 from src.call_notice_data_merge import render_call_notice_merge_page
+from src.transaction_matcher import render_transaction_matcher_page
+from src.disputed_amount_matcher import render_disputed_amount_matcher_page
+from src.money_transfer_dispute import render_money_transfer_dispute_page
+from src.ack_bank_consolidator import render_ack_bank_consolidator_page
 from src.database_service import DatabaseService
+from src.districtwise import render_districtwise_page
+from src.non_gujarat_filter import render_non_gujarat_filter_page
+from src.column_selector import render_column_selector_page
+from src.amount_matcher import render_amount_matcher_page
+from src.bank_ack_pivot import render_bank_ack_pivot_page
+from src.ack_list_pivot import render_ack_list_pivot_page
+from src.filter_by_entry_count import render_filter_by_entry_count_page
+from src.filter_by_unique_ack import render_filter_by_unique_ack_page
+from src.bulk_mysql_import import render_bulk_mysql_import_page
+from src.mysql_database_viewer import render_mysql_database_viewer_page
+from src.ai_sql_assistant import render_ai_sql_assistant_page
+from src.automated_workflow import render_automated_workflow_page
+from src.ui_styling import apply_custom_css, render_page_header_with_info
+from src.smart_district_split import render_smart_district_split_page
+from src.ifsc_pincode_district_split import render_ifsc_pincode_district_split_page
+from src.distinct_account_pivot import render_distinct_account_pivot_page
 
 # Page configuration
 st.set_page_config(
-    page_title="Fraud Analysis Tool",
+    page_title="Fraud Analysis Tool - Gujarat Cyber Police",
     page_icon="🔍",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Apply custom styling
+apply_custom_css()
 
 # Initialize services (cached to avoid recreation)
 @st.cache_resource
@@ -87,7 +110,9 @@ def init_session_state():
 def render_sidebar():
     """Render the navigation sidebar."""
     with st.sidebar:
-        st.title("Navigation")
+        st.title("🔍 Fraud Analysis")
+        st.caption("Gujarat Cyber Police")
+        st.markdown("---")
         
         # Page navigation
         pages = {
@@ -96,8 +121,27 @@ def render_sidebar():
             'processing': '⚙️ Processing',
             'results': '📊 Results Dashboard',
             'district_download': '📍 District Data Download',
+            'districtwise': '📊 Split Data by Column',
+            'smart_district_split': '🗺️ Smart District Split',
+            'ifsc_pincode_split': '🏦 IFSC/PIN District Split',
+            'filter_by_entry_count': '🔢 Filter by Entry Count',
+            'filter_by_unique_ack': '🏦 Filter by Unique ACK',
+            'non_gujarat_filter': '🗺️ Non-Gujarat Filter',
+            'amount_matcher': '💰 Amount Matcher',
+            'bank_ack_pivot': '🏦 Bank ACK Pivot',
+            'ack_list_pivot': '📋 ACK List Pivot',
+            'automated_workflow': '🔄 Automated Workflow',
+            'column_selector': '📋 Column Selector',
             'excel_merger': '📎 Merge Excel Files',
             'call_notice_merge': '📞 Call Notice Data Merge',
+            'transaction_matcher': '🔄 Transaction Matcher',
+            'disputed_amount_matcher': '💰 Disputed Amount Matcher',
+            'money_transfer_dispute': '💸 Money Transfer Dispute Matcher',
+            'ack_bank_consolidator': '📊 ACK + Bank Consolidator',
+            'bulk_mysql_import': '📊 Bulk MySQL Import',
+            'mysql_database_viewer': '🗄️ MySQL Database Viewer',
+            'ai_sql_assistant': '🤖 AI SQL Assistant',
+            'distinct_account_pivot': '📊 Distinct Account Pivot',
             'view_database': '🗄️ View Database'
         }
         
@@ -122,15 +166,16 @@ def render_sidebar():
         st.markdown("---")
         
         # Session info
-        st.caption("Session Info")
+        st.caption("📊 Session Info")
         if st.session_state.filename:
-            st.text(f"File: {st.session_state.filename}")
+            st.caption(f"📁 {st.session_state.filename}")
         
         st.markdown("---")
         
         # Data handling reminder
         st.caption("🔒 Security")
-        st.caption("All data is processed in-memory only.")
+        st.caption("All data processed in-memory only.")
+        st.caption("No data stored on servers.")
         
         # Reset button
         st.markdown("---")
@@ -145,7 +190,8 @@ def render_upload_page():
     services = get_services()
     upload_service = services['upload_service']
     
-    st.title("📤 Upload Transaction Files")
+    # Render page header with info button
+    render_page_header_with_info('upload')
     
     # Check if data already processed - show option to proceed or upload new
     if st.session_state.uploaded_df is not None:
@@ -255,11 +301,11 @@ def render_mapping_page():
         st.warning("Please upload a file first.")
         return
     
+    # Render page header with info button
+    render_page_header_with_info('mapping')
+    
     df = st.session_state.uploaded_df
     headers = list(df.columns)
-    
-    st.title("🔗 Column Mapping")
-    st.markdown("Map your file columns to the required fields. Auto-detected mappings are shown below.")
     
     # Auto-detect columns
     auto_mapping = column_detector.detect_columns(headers)
@@ -404,7 +450,8 @@ def render_processing_page():
         st.warning("Please complete the previous steps first.")
         return
     
-    st.title("⚙️ Data Processing")
+    # Render page header with info button
+    render_page_header_with_info('processing')
     
     df = st.session_state.uploaded_df
     mapping = st.session_state.column_mapping
@@ -548,11 +595,12 @@ def render_results_page():
         st.warning("Please process data first.")
         return
     
+    # Render page header with info button
+    render_page_header_with_info('results')
+    
     accounts = st.session_state.aggregated_accounts
     stats = st.session_state.processing_stats
     validation_result = st.session_state.validation_result
-    
-    st.title("📊 Results Dashboard")
     
     # Summary Statistics
     st.subheader("📈 Summary Statistics")
@@ -912,8 +960,8 @@ def render_results_page():
 
 def render_view_database_page():
     """Render the View Database page - Gujarat Cyber Police Data Management."""
-    st.title("🗄️ View Database")
-    st.markdown("**Gujarat Cyber Police** - Secure Data Management with Integrity Verification")
+    # Render page header with info button
+    render_page_header_with_info('view_database')
     
     # Database connection settings
     with st.expander("⚙️ Database Connection Settings", expanded=False):
@@ -1248,7 +1296,6 @@ def render_view_database_page():
                         
                         if is_valid:
                             st.success(message)
-                            st.balloons()
                         else:
                             st.error(f"❌ INTEGRITY CHECK FAILED: {message}")
                             st.warning("⚠️ This dataset may have data corruption. Please re-save from original source.")
@@ -1470,10 +1517,48 @@ def main():
         render_results_page()
     elif page == 'district_download':
         render_district_download_page()
+    elif page == 'districtwise':
+        render_districtwise_page()
+    elif page == 'smart_district_split':
+        render_smart_district_split_page()
+    elif page == 'ifsc_pincode_split':
+        render_ifsc_pincode_district_split_page()
+    elif page == 'filter_by_entry_count':
+        render_filter_by_entry_count_page()
+    elif page == 'filter_by_unique_ack':
+        render_filter_by_unique_ack_page()
+    elif page == 'non_gujarat_filter':
+        render_non_gujarat_filter_page()
+    elif page == 'amount_matcher':
+        render_amount_matcher_page()
+    elif page == 'bank_ack_pivot':
+        render_bank_ack_pivot_page()
+    elif page == 'ack_list_pivot':
+        render_ack_list_pivot_page()
+    elif page == 'automated_workflow':
+        render_automated_workflow_page()
+    elif page == 'column_selector':
+        render_column_selector_page()
     elif page == 'excel_merger':
         render_merge_files_page()
     elif page == 'call_notice_merge':
         render_call_notice_merge_page()
+    elif page == 'transaction_matcher':
+        render_transaction_matcher_page()
+    elif page == 'disputed_amount_matcher':
+        render_disputed_amount_matcher_page()
+    elif page == 'money_transfer_dispute':
+        render_money_transfer_dispute_page()
+    elif page == 'ack_bank_consolidator':
+        render_ack_bank_consolidator_page()
+    elif page == 'bulk_mysql_import':
+        render_bulk_mysql_import_page()
+    elif page == 'mysql_database_viewer':
+        render_mysql_database_viewer_page()
+    elif page == 'ai_sql_assistant':
+        render_ai_sql_assistant_page()
+    elif page == 'distinct_account_pivot':
+        render_distinct_account_pivot_page()
     elif page == 'view_database':
         render_view_database_page()
     else:

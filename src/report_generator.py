@@ -519,6 +519,7 @@ class ReportGenerator:
         if top_accounts:
             # Table headers
             table_data = [[
+                "No.",
                 "Account Number",
                 "Bank Name",
                 "IFSC Code",
@@ -528,10 +529,11 @@ class ReportGenerator:
             ]]
             
             # Add account rows
-            for account in top_accounts:
+            for i, account in enumerate(top_accounts, 1):
                 table_data.append([
+                    str(i),
                     account.account_number,
-                    account.bank_name[:20] + "..." if len(account.bank_name) > 20 else account.bank_name,
+                    account.bank_name[:25] + "..." if len(account.bank_name) > 25 else account.bank_name,
                     account.ifsc_code,
                     str(account.total_transactions),
                     f"₹{account.total_amount:,.2f}",
@@ -539,22 +541,45 @@ class ReportGenerator:
                 ])
             
             # Create table with column widths
-            col_widths = [1.8*inch, 1.5*inch, 1.2*inch, 1*inch, 1.5*inch, 0.8*inch]
-            accounts_table = Table(table_data, colWidths=col_widths)
+            col_widths = [0.4*inch, 1.8*inch, 2.2*inch, 1.2*inch, 1*inch, 1.5*inch, 0.8*inch]
+            accounts_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+            
+            # Define professional colors
+            primary_color = colors.HexColor("#1A237E") # Deep Indigo
+            header_text = colors.whitesmoke
+            row_even = colors.HexColor("#F5F5F5")
+            row_odd = colors.white
+            border_color = colors.HexColor("#BDBDBD")
+            
             accounts_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('ALIGN', (3, 1), (3, -1), 'CENTER'),
-                ('ALIGN', (4, 1), (4, -1), 'RIGHT'),
-                ('ALIGN', (5, 1), (5, -1), 'CENTER'),
+                # Header Style
+                ('BACKGROUND', (0, 0), (-1, 0), primary_color),
+                ('TEXTCOLOR', (0, 0), (-1, 0), header_text),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+                ('TOPPADDING', (0, 0), (-1, 0), 10),
+                
+                # Content Style
+                ('ALIGN', (0, 1), (0, -1), 'CENTER'), # No.
+                ('ALIGN', (1, 1), (1, -1), 'LEFT'),   # Account
+                ('ALIGN', (2, 1), (2, -1), 'LEFT'),   # Bank
+                ('ALIGN', (3, 1), (3, -1), 'CENTER'), # IFSC
+                ('ALIGN', (4, 1), (4, -1), 'CENTER'), # Txns
+                ('ALIGN', (5, 1), (5, -1), 'RIGHT'),  # Amount
+                ('ALIGN', (6, 1), (6, -1), 'CENTER'), # Risk
+                
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                
+                # Alternating Row Colors
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [row_odd, row_even]),
+                
+                # Borders
+                ('GRID', (0, 0), (-1, -1), 0.5, border_color),
+                ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor("#0D47A1")), # Thick line below header
             ]))
             story.append(accounts_table)
         else:

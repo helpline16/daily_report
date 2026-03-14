@@ -1,0 +1,10 @@
+{
+  "ack_list_col": 31101260022563,
+  "layer_ack": "Acknowledgement No.",
+  "layer_bank": "Bank/FIs",
+  "layer_disputed": "Disputed Amount",
+  "status_ack": "Acknowledgement No.",
+  "status_bank": "Bank/ (Wallet /PG/PA)/ Merchant / Insurance",
+  "status_amount": " Amount",
+  "status_complaint": "Complaint Date"
+}
