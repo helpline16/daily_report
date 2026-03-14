@@ -5,6 +5,7 @@ Provides simple login functionality for deployed app
 
 import streamlit as st
 import hashlib
+import os
 
 
 def hash_password(password):
@@ -19,8 +20,20 @@ DEFAULT_USERS = {
 }
 
 
+def is_local():
+    """Check if app is running locally or deployed"""
+    # Check if running on Streamlit Cloud
+    # Streamlit Cloud sets specific environment variables
+    return not bool(os.getenv("STREAMLIT_SHARING_MODE") or 
+                   os.getenv("STREAMLIT_SERVER_HEADLESS") == "true")
+
+
 def check_password():
     """Returns True if the user has entered correct password"""
+    
+    # Skip authentication if running locally
+    if is_local():
+        return True
     
     # Check if already logged in
     if st.session_state.get("authenticated", False):
@@ -63,7 +76,8 @@ def logout():
 
 def show_logout_button():
     """Display logout button in sidebar"""
-    if st.session_state.get("authenticated", False):
+    # Only show logout button if deployed (not local)
+    if not is_local() and st.session_state.get("authenticated", False):
         with st.sidebar:
             st.markdown("---")
             username = st.session_state.get("username", "User")
