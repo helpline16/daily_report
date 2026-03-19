@@ -477,6 +477,35 @@ def render_automated_workflow_page():
                     st.success(f"✅ Built output with 15 required columns")
                     progress_bar.progress(20)
                     
+                    # FILTER: Only keep records where ACK starts with "311"
+                    status_text.text("Step 2.5/4: Filtering ACK numbers starting with 311...")
+                    
+                    original_count = len(output_df)
+                    ack_column = "Acknowledgement No."
+                    
+                    if ack_column in output_df.columns:
+                        # Filter for ACK numbers starting with "311"
+                        output_df = output_df[output_df[ack_column].astype(str).str.startswith('311', na=False)].copy()
+                        filtered_count = len(output_df)
+                        excluded_count = original_count - filtered_count
+                        
+                        st.success(f"✅ ACK Filter Applied: {filtered_count:,} records kept, {excluded_count:,} excluded (non-311 ACK)")
+                        
+                        # Show debug info
+                        with st.expander("🔍 Debug: ACK Filter Results"):
+                            st.write(f"**Original Records:** {original_count:,}")
+                            st.write(f"**Records with ACK starting with '311':** {filtered_count:,}")
+                            st.write(f"**Excluded Records (non-311 ACK):** {excluded_count:,}")
+                            if filtered_count > 0:
+                                st.write(f"**Sample ACK numbers (first 10):**")
+                                sample_acks = output_df[ack_column].head(10).tolist()
+                                for i, ack in enumerate(sample_acks, 1):
+                                    st.write(f"{i}. {ack}")
+                    else:
+                        st.warning("⚠️ ACK column not found - skipping ACK filter")
+                    
+                    progress_bar.progress(25)
+                    
                     # STEP 3: Generate 4 filtered files
                     status_text.text("Step 3/4: Generating filtered files...")
                     
@@ -613,6 +642,12 @@ def render_automated_workflow_page():
                         non_guj_rows = total_rows_1 - total_rows_2
                         non_guj_5l_rows = total_rows_3 - total_rows_4
                         
+                        # Calculate percentages for Gujarat
+                        guj_acc_pct = (unique_acc_2 / unique_acc_1 * 100) if unique_acc_1 > 0 else 0
+                        guj_5l_acc_pct = (unique_acc_4 / unique_acc_3 * 100) if unique_acc_3 > 0 else 0
+                        guj_rows_pct = (total_rows_2 / total_rows_1 * 100) if total_rows_1 > 0 else 0
+                        guj_5l_rows_pct = (total_rows_4 / total_rows_3 * 100) if total_rows_3 > 0 else 0
+                        
                         # Calculate Top 5 Victim Districts from fraud amount data (by unique ACK counts)
                         victim_district_counts = {}
                         ack_column = "Acknowledgement No."
@@ -636,26 +671,26 @@ def render_automated_workflow_page():
                                     if pd.notna(district) and str(district).strip():
                                         suspect_district_counts[i] = f"{district} - {count:02d}"
                         
-                        # Create unified summary report
+                        # Create unified summary report with percentages
                         summary_report = f"""Date: {previous_date}
 
-*• Unique Account Counts*
+• Unique Account Counts
   • All: {unique_acc_1:,}
-  • Gujarat: {unique_acc_2:,}
+  • Gujarat: {unique_acc_2:,} ({guj_acc_pct:.2f}%)
   • Non Gujarat: {non_guj_from_all:,}
   • All 5L Plus: {unique_acc_3:,}
-  • Gujarat 5L Plus: {unique_acc_4:,}
+  • Gujarat 5L Plus: {unique_acc_4:,} ({guj_5l_acc_pct:.2f}%)
   • Non Gujarat 5L Plus: {non_guj_5l_from_5l:,}
 
-*• Total L1 Transaction Records*
+• Total L1 Transaction Records
   • All: {total_rows_1:,}
-  • Gujarat: {total_rows_2:,}
+  • Gujarat: {total_rows_2:,} ({guj_rows_pct:.2f}%)
   • Non Gujarat: {non_guj_rows:,}
   • All 5L Plus: {total_rows_3:,}
-  • Gujarat 5L Plus: {total_rows_4:,}
+  • Gujarat 5L Plus: {total_rows_4:,} ({guj_5l_rows_pct:.2f}%)
   • Non Gujarat 5L Plus: {non_guj_5l_rows:,}
 
-*• Top 5 Victim Districts/Cities (By the number of complaints)*"""
+* Top 5 Victim Districts/Cities (By the number of complaints)"""
                         
                         for i in range(1, 6):
                             if i in victim_district_counts:
@@ -663,7 +698,7 @@ def render_automated_workflow_page():
                             else:
                                 summary_report += f"\n  {i}. No data - 00"
                         
-                        summary_report += "\n\n*• Top 5 Suspect Districts/Cities (By the number of transactions)*"
+                        summary_report += "\n\n* Top 5 Suspect Districts/Cities (By the number of transactions)"
                         
                         for i in range(1, 6):
                             if i in suspect_district_counts:
@@ -784,7 +819,7 @@ def render_automated_workflow_page():
                     st.download_button(
                         "⬇️ 1. All Matched Data",
                         data=excel_buffer1.getvalue(),
-                        file_name=f"1_All_Matched_{timestamp}.xlsx",
+                        file_name=f"All_Matched_{timestamp}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         key="dl1"
                     )
@@ -795,7 +830,7 @@ def render_automated_workflow_page():
                     st.download_button(
                         "⬇️ 4. Gujarat 5 Lacs Plus",
                         data=excel_buffer4.getvalue(),
-                        file_name=f"4_Gujarat_5Lacs_Plus_{timestamp}.xlsx",
+                        file_name=f"Gujarat_5Lacs_Plus_{timestamp}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         key="dl4"
                     )
@@ -807,7 +842,7 @@ def render_automated_workflow_page():
                     st.download_button(
                         "⬇️ 2. Gujarat Only",
                         data=excel_buffer2.getvalue(),
-                        file_name=f"2_Gujarat_{timestamp}.xlsx",
+                        file_name=f"Gujarat_{timestamp}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         key="dl2"
                     )
@@ -818,7 +853,7 @@ def render_automated_workflow_page():
                     st.download_button(
                         "⬇️ 5. Non-Gujarat",
                         data=excel_buffer5.getvalue(),
-                        file_name=f"5_Non_Gujarat_{timestamp}.xlsx",
+                        file_name=f"Non_Gujarat_{timestamp}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         key="dl5"
                     )
@@ -830,7 +865,7 @@ def render_automated_workflow_page():
                     st.download_button(
                         "⬇️ 3. 5 Lacs Plus",
                         data=excel_buffer3.getvalue(),
-                        file_name=f"3_5Lacs_Plus_{timestamp}.xlsx",
+                        file_name=f"5Lacs_Plus_{timestamp}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         key="dl3"
                     )
@@ -841,7 +876,7 @@ def render_automated_workflow_page():
                     st.download_button(
                         "⬇️ 6. Non-Gujarat 5 Lacs Plus",
                         data=excel_buffer6.getvalue(),
-                        file_name=f"6_Non_Gujarat_5Lacs_Plus_{timestamp}.xlsx",
+                        file_name=f"Non_Gujarat_5Lacs_Plus_{timestamp}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         key="dl6"
                     )
