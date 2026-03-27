@@ -648,19 +648,25 @@ def render_automated_workflow_page():
                         guj_rows_pct = (total_rows_2 / total_rows_1 * 100) if total_rows_1 > 0 else 0
                         guj_5l_rows_pct = (total_rows_4 / total_rows_3 * 100) if total_rows_3 > 0 else 0
                         
-                        # Calculate Top 5 Victim Districts from fraud amount data (by complaint count)
+                        # Calculate Top 5 Victim Districts from ORIGINAL fraud amount file (by complaint count)
                         # Note: Each ACK is unique in fraud amount file, so we count records per district
                         victim_district_counts = {}
-                        if district_column in output_df.columns and len(output_df) > 0:
-                            # Clean district names: strip whitespace and convert to uppercase for consistency
-                            temp_df = output_df.copy()
-                            temp_df['clean_district'] = temp_df[district_column].astype(str).str.strip().str.upper()
+                        
+                        # Get the mapped district column name from fraud file
+                        fraud_district_col = column_mapping.get("Victim District", "-- Skip --")
+                        
+                        if fraud_district_col != "-- Skip --" and fraud_district_col in fraud_df.columns and len(fraud_df) > 0:
+                            # Use ORIGINAL fraud_df, not merged output_df
+                            temp_fraud = fraud_df.copy()
+                            temp_fraud['clean_district'] = temp_fraud[fraud_district_col].astype(str).str.strip().str.upper()
                             
                             # Remove empty/null districts
-                            temp_df = temp_df[temp_df['clean_district'].notna() & (temp_df['clean_district'] != '') & (temp_df['clean_district'] != 'NAN')]
+                            temp_fraud = temp_fraud[temp_fraud['clean_district'].notna() & 
+                                                   (temp_fraud['clean_district'] != '') & 
+                                                   (temp_fraud['clean_district'] != 'NAN')]
                             
                             # Count records per district (each record = 1 complaint since ACKs are unique)
-                            victim_counts = temp_df['clean_district'].value_counts().head(5)
+                            victim_counts = temp_fraud['clean_district'].value_counts().head(5)
                             
                             for i, (district, count) in enumerate(victim_counts.items(), 1):
                                 if pd.notna(district) and str(district).strip():
