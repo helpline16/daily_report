@@ -652,11 +652,21 @@ def render_automated_workflow_page():
                         victim_district_counts = {}
                         ack_column = "Acknowledgement No."
                         if district_column in output_df.columns and ack_column in output_df.columns and len(output_df) > 0:
+                            # Clean district names: strip whitespace and convert to uppercase for consistency
+                            temp_df = output_df.copy()
+                            temp_df['clean_district'] = temp_df[district_column].astype(str).str.strip().str.upper()
+                            
+                            # Remove empty/null districts
+                            temp_df = temp_df[temp_df['clean_district'].notna() & (temp_df['clean_district'] != '') & (temp_df['clean_district'] != 'NAN')]
+                            
                             # Group by district and count unique acknowledgment numbers
-                            victim_ack_counts = output_df.groupby(district_column)[ack_column].nunique().sort_values(ascending=False).head(5)
+                            victim_ack_counts = temp_df.groupby('clean_district')[ack_column].nunique().sort_values(ascending=False).head(5)
+                            
                             for i, (district, count) in enumerate(victim_ack_counts.items(), 1):
                                 if pd.notna(district) and str(district).strip():
-                                    victim_district_counts[i] = f"{district} - {count}"
+                                    # Convert to title case for better readability
+                                    district_display = district.title()
+                                    victim_district_counts[i] = f"{district_display} - {count}"
                         
                         # Calculate Top 5 Suspect Districts from layerwise data (Gujarat only, by transaction count)
                         suspect_district_counts = {}
@@ -664,17 +674,30 @@ def render_automated_workflow_page():
                         suspect_state_col = "State"  # Column 10 in output (Suspect State)
                         if suspect_district_col in output_df.columns and suspect_state_col in output_df.columns and len(output_df) > 0:
                             # Filter for Gujarat state only
-                            gujarat_data = output_df[output_df[suspect_state_col].astype(str).str.upper().str.contains('GUJARAT|GUJRAT|GUJ', na=False)]
+                            gujarat_data = output_df[output_df[suspect_state_col].astype(str).str.upper().str.contains('GUJARAT|GUJRAT|GUJ', na=False)].copy()
+                            
                             if len(gujarat_data) > 0:
-                                suspect_counts = gujarat_data[suspect_district_col].value_counts().head(5)
+                                # Clean district names
+                                gujarat_data['clean_suspect_district'] = gujarat_data[suspect_district_col].astype(str).str.strip().str.upper()
+                                
+                                # Remove empty/null districts
+                                gujarat_data = gujarat_data[gujarat_data['clean_suspect_district'].notna() & 
+                                                           (gujarat_data['clean_suspect_district'] != '') & 
+                                                           (gujarat_data['clean_suspect_district'] != 'NAN')]
+                                
+                                # Count transactions per district
+                                suspect_counts = gujarat_data['clean_suspect_district'].value_counts().head(5)
+                                
                                 for i, (district, count) in enumerate(suspect_counts.items(), 1):
                                     if pd.notna(district) and str(district).strip():
-                                        suspect_district_counts[i] = f"{district} - {count:02d}"
+                                        # Convert to title case for better readability
+                                        district_display = district.title()
+                                        suspect_district_counts[i] = f"{district_display} - {count:02d}"
                         
                         # Create unified summary report with percentages
                         summary_report = f"""Date: {previous_date}
 
-• Unique Account Counts
+*• Unique Account Counts*
   • All: {unique_acc_1:,}
   • Gujarat: {unique_acc_2:,} ({guj_acc_pct:.2f}%)
   • Non Gujarat: {non_guj_from_all:,}
@@ -682,7 +705,7 @@ def render_automated_workflow_page():
   • Gujarat 5L Plus: {unique_acc_4:,} ({guj_5l_acc_pct:.2f}%)
   • Non Gujarat 5L Plus: {non_guj_5l_from_5l:,}
 
-• Total L1 Transaction Records
+*• Total L1 Transaction Records*
   • All: {total_rows_1:,}
   • Gujarat: {total_rows_2:,} ({guj_rows_pct:.2f}%)
   • Non Gujarat: {non_guj_rows:,}
@@ -690,7 +713,7 @@ def render_automated_workflow_page():
   • Gujarat 5L Plus: {total_rows_4:,} ({guj_5l_rows_pct:.2f}%)
   • Non Gujarat 5L Plus: {non_guj_5l_rows:,}
 
-* Top 5 Victim Districts/Cities (By the number of complaints)"""
+*•  Top 5 Victim Districts/Cities (By the number of complaints)*"""
                         
                         for i in range(1, 6):
                             if i in victim_district_counts:
@@ -698,7 +721,7 @@ def render_automated_workflow_page():
                             else:
                                 summary_report += f"\n  {i}. No data - 00"
                         
-                        summary_report += "\n\n* Top 5 Suspect Districts/Cities (By the number of transactions)"
+                        summary_report += "\n\n*•  Top 5 Suspect Districts/Cities (By the number of transactions)*"
                         
                         for i in range(1, 6):
                             if i in suspect_district_counts:
