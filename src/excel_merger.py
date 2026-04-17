@@ -267,6 +267,13 @@ def render_excel_merger_page():
         # Combine all dataframes based on merge mode
         try:
             with st.spinner("Merging files..."):
+                # Show what we're merging
+                st.info(f"🔄 Merging {len(st.session_state.merger_files)} files...")
+                
+                # Display input file stats
+                total_input_rows = sum(len(df) for _, df in st.session_state.merger_files)
+                st.write(f"**Input:** {total_input_rows:,} total rows from {len(st.session_state.merger_files)} files")
+                
                 if merge_mode == "Strict Merge (Only common columns)":
                     # Only keep common columns
                     if len(common_columns) == 0:
@@ -279,11 +286,16 @@ def render_excel_merger_page():
                     for filename, df in st.session_state.merger_files:
                         filtered_df = df[list(common_columns)]
                         filtered_dfs.append(filtered_df)
+                        st.write(f"  • {filename}: {len(filtered_df):,} rows")
                     
                     combined_df = pd.concat(filtered_dfs, ignore_index=True)
-                    st.info(f"ℹ️ Strict Merge: Kept only {len(common_columns)} common columns")
+                    st.success(f"✅ Strict Merge: Kept only {len(common_columns)} common columns. Result: {len(combined_df):,} rows")
                 
                 else:  # Smart Merge or Keep All Columns (both do the same thing)
+                    # Show each file being merged
+                    for filename, df in st.session_state.merger_files:
+                        st.write(f"  • {filename}: {len(df):,} rows × {len(df.columns)} columns")
+                    
                     # Concatenate with all columns (union)
                     combined_df = pd.concat(
                         [df for _, df in st.session_state.merger_files], 
@@ -291,30 +303,48 @@ def render_excel_merger_page():
                         sort=False  # Preserve column order
                     )
                     
+                    st.success(f"✅ Merged successfully: {len(combined_df):,} rows (expected: {total_input_rows:,})")
+                    
+                    if len(combined_df) != total_input_rows:
+                        st.error(f"⚠️ WARNING: Row count mismatch! Expected {total_input_rows:,} but got {len(combined_df):,}")
+                    
                     if len(all_columns) > len(common_columns):
                         missing_cols = len(all_columns) - len(common_columns)
-                        st.success(f"✅ Smart Merge: Combined all {len(all_columns)} unique columns. {missing_cols} columns had missing values filled with blanks.")
+                        st.info(f"ℹ️ Combined all {len(all_columns)} unique columns. {missing_cols} columns had missing values filled with blanks.")
                 
                 # Auto-renumber serial number columns if they exist
                 serial_col_names = ['S No.', 'S.No.', 'S No', 'SNo', 'Serial No', 'Sr No', 'Sr. No.', 'Sl No', 'Sl. No.']
                 for col in combined_df.columns:
                     if col in serial_col_names or col.lower() in [s.lower() for s in serial_col_names]:
                         combined_df[col] = range(1, len(combined_df) + 1)
-                        st.info(f"✅ Auto-renumbered column: '{col}'")
+                        st.info(f"✅ Auto-renumbered column: '{col}' (1 to {len(combined_df)})")
                         break
             
             # Stats
+            st.markdown("---")
+            st.subheader("📊 Merge Results")
+            
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("Total Files", len(st.session_state.merger_files))
+                st.metric("Total Files Merged", len(st.session_state.merger_files))
             with col2:
-                st.metric("Total Rows", f"{len(combined_df):,}")
+                input_rows = sum(len(df) for _, df in st.session_state.merger_files)
+                st.metric("Input Rows", f"{input_rows:,}")
             with col3:
-                st.metric("Final Columns", len(combined_df.columns))
+                st.metric("Output Rows", f"{len(combined_df):,}", 
+                         delta=f"{'✓ Match' if len(combined_df) == input_rows else '✗ Mismatch'}")
             with col4:
-                # Calculate total size estimate
-                size_mb = combined_df.memory_usage(deep=True).sum() / (1024 * 1024)
-                st.metric("Size", f"{size_mb:.1f} MB")
+                st.metric("Final Columns", len(combined_df.columns))
+            
+            # Verify row count
+            if len(combined_df) == sum(len(df) for _, df in st.session_state.merger_files):
+                st.success(f"✅ Row count verified: All {len(combined_df):,} rows merged successfully!")
+            else:
+                st.error(f"⚠️ Row count issue detected! Please check your data.")
+            
+            # Show size
+            size_mb = combined_df.memory_usage(deep=True).sum() / (1024 * 1024)
+            st.info(f"📦 File size: {size_mb:.2f} MB")
             
             # Show breakdown by file
             with st.expander("📋 Files Breakdown", expanded=False):
