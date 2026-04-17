@@ -347,70 +347,139 @@ def render_merge_files_page():
     # Show results if available
     if 'merge_summary' in st.session_state:
         summary = st.session_state['merge_summary']
+        combined_df = st.session_state.get('merge_combined', None)
         
         st.markdown("---")
-        st.subheader("📋 Summary Results")
         
-        # Stats
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Unique Accounts", f"{len(summary):,}")
-        with col2:
-            total_amount = summary['Transaction Amount'].sum()
-            st.metric("Total Amount", f"₹{total_amount:,.2f}")
-        with col3:
-            total_disputed = summary['Disputed Amount'].sum()
-            st.metric("Total Disputed", f"₹{total_disputed:,.2f}")
-        with col4:
-            total_txns = summary['Transaction Count'].sum()
-            st.metric("Total Transactions", f"{total_txns:,}")
+        # Add tabs for different views
+        tab1, tab2 = st.tabs(["📊 Summary (Aggregated)", "📋 Full Data (All Rows)"])
         
-        # Preview
-        with st.expander("📋 Preview Summary (First 100 rows)", expanded=True):
-            display_df = summary.head(100).copy()
-            display_df['Transaction Amount'] = display_df['Transaction Amount'].apply(lambda x: f"₹{x:,.2f}")
-            display_df['Disputed Amount'] = display_df['Disputed Amount'].apply(lambda x: f"₹{x:,.2f}")
-            st.dataframe(display_df, use_container_width=True)
-        
-        st.markdown("---")
-        st.subheader("📥 Download")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Excel download
-            buffer = io.BytesIO()
-            MAX_ROWS = 1_048_576
-            MAX_DATA_ROWS = MAX_ROWS - 1
+        with tab1:
+            st.subheader("Summary Results (Grouped by Account)")
             
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                if len(summary) > MAX_DATA_ROWS:
-                    st.warning("⚠️ Data too large for single sheet. Splitting...")
-                    for i in range(0, len(summary), MAX_DATA_ROWS):
-                        chunk = summary.iloc[i:i + MAX_DATA_ROWS]
-                        chunk.to_excel(writer, sheet_name=f"Summary_Part_{(i // MAX_DATA_ROWS) + 1}", index=False)
-                else:
-                    summary.to_excel(writer, sheet_name="Summary", index=False)
+            # Stats
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Unique Accounts", f"{len(summary):,}")
+            with col2:
+                total_amount = summary['Transaction Amount'].sum()
+                st.metric("Total Amount", f"₹{total_amount:,.2f}")
+            with col3:
+                total_disputed = summary['Disputed Amount'].sum()
+                st.metric("Total Disputed", f"₹{total_disputed:,.2f}")
+            with col4:
+                total_txns = summary['Transaction Count'].sum()
+                st.metric("Total Transactions", f"{total_txns:,}")
             
-            buffer.seek(0)
-            st.download_button(
-                label="📊 Download Excel",
-                data=buffer,
-                file_name="merged_summary.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
+            # Preview
+            with st.expander("📋 Preview Summary (First 100 rows)", expanded=True):
+                display_df = summary.head(100).copy()
+                display_df['Transaction Amount'] = display_df['Transaction Amount'].apply(lambda x: f"₹{x:,.2f}")
+                display_df['Disputed Amount'] = display_df['Disputed Amount'].apply(lambda x: f"₹{x:,.2f}")
+                st.dataframe(display_df, use_container_width=True)
+            
+            st.markdown("---")
+            st.subheader("📥 Download Summary")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Excel download
+                buffer = io.BytesIO()
+                MAX_ROWS = 1_048_576
+                MAX_DATA_ROWS = MAX_ROWS - 1
+                
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    if len(summary) > MAX_DATA_ROWS:
+                        st.warning("⚠️ Data too large for single sheet. Splitting...")
+                        for i in range(0, len(summary), MAX_DATA_ROWS):
+                            chunk = summary.iloc[i:i + MAX_DATA_ROWS]
+                            chunk.to_excel(writer, sheet_name=f"Summary_Part_{(i // MAX_DATA_ROWS) + 1}", index=False)
+                    else:
+                        summary.to_excel(writer, sheet_name="Summary", index=False)
+                
+                buffer.seek(0)
+                st.download_button(
+                    label="📊 Download Summary Excel",
+                    data=buffer,
+                    file_name="merged_summary.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            
+            with col2:
+                # CSV download
+                csv_data = summary.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📄 Download Summary CSV",
+                    data=csv_data,
+                    file_name="merged_summary.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
         
-        with col2:
-            # CSV download
-            csv_data = summary.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📄 Download CSV",
-                data=csv_data,
-                file_name="merged_summary.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
+        with tab2:
+            st.subheader("Full Merged Data (All Rows)")
+            
+            if combined_df is not None:
+                # Stats
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Rows", f"{len(combined_df):,}")
+                with col2:
+                    st.metric("Total Columns", len(combined_df.columns))
+                with col3:
+                    size_mb = combined_df.memory_usage(deep=True).sum() / (1024 * 1024)
+                    st.metric("Size", f"{size_mb:.1f} MB")
+                
+                st.info("💡 This is the complete merged data with ALL rows from all files (not aggregated)")
+                
+                # Preview
+                with st.expander("📋 Preview Full Data (First 100 rows)", expanded=True):
+                    st.dataframe(combined_df.head(100), use_container_width=True)
+                
+                st.markdown("---")
+                st.subheader("📥 Download Full Data")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # Excel download
+                    buffer = io.BytesIO()
+                    MAX_ROWS = 1_048_576
+                    MAX_DATA_ROWS = MAX_ROWS - 1
+                    
+                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                        if len(combined_df) > MAX_DATA_ROWS:
+                            st.warning("⚠️ Data too large for single sheet. Splitting...")
+                            for i in range(0, len(combined_df), MAX_DATA_ROWS):
+                                chunk = combined_df.iloc[i:i + MAX_DATA_ROWS]
+                                chunk.to_excel(writer, sheet_name=f"Data_Part_{(i // MAX_DATA_ROWS) + 1}", index=False)
+                        else:
+                            combined_df.to_excel(writer, sheet_name="Merged Data", index=False)
+                    
+                    buffer.seek(0)
+                    st.download_button(
+                        label=f"📊 Download Full Excel ({len(combined_df):,} rows)",
+                        data=buffer,
+                        file_name="merged_full_data.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        type="primary"
+                    )
+                
+                with col2:
+                    # CSV download
+                    csv_data = combined_df.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label=f"📄 Download Full CSV ({len(combined_df):,} rows)",
+                        data=csv_data,
+                        file_name="merged_full_data.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+            else:
+                st.warning("⚠️ Full data not available. Please re-process the files.")
         
         # Clear button
         st.markdown("---")
