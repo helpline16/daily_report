@@ -16,60 +16,75 @@ from typing import List, Dict, Optional, Tuple
 
 def auto_detect_columns(df: pd.DataFrame) -> Dict[str, str]:
     """Auto-detect column mappings based on column names."""
-    # Normalize column names
-    df.columns = [str(col).strip().lower() if col is not None else "" for col in df.columns]
+    # Store original column names for reference
+    original_columns = list(df.columns)
+    
+    # Normalize column names for matching
+    normalized_cols = {str(col).strip().lower() if col is not None else "": col for col in df.columns}
     
     columns_map = {}
     
-    for col in df.columns:
-        col_lower = col.lower()
+    for col_lower, original_col in normalized_cols.items():
+        if not col_lower:
+            continue
         
         # Acknowledgement Number
-        if ('acknowledgement' in col_lower or 'ack' in col_lower) and ('no' in col_lower or 'number' in col_lower):
-            columns_map['ack_no'] = col
-        elif col_lower in ['acknowledgement no.', 'ack no.', 'ack_no', 'acknowledgement_no']:
-            columns_map['ack_no'] = col
+        if not columns_map.get('ack_no'):
+            if ('acknowledgement' in col_lower or 'ack' in col_lower) and ('no' in col_lower or 'number' in col_lower):
+                columns_map['ack_no'] = original_col
+            elif col_lower in ['acknowledgement no.', 'ack no.', 'ack_no', 'acknowledgement_no', 'ack no', 'acknowledgement no']:
+                columns_map['ack_no'] = original_col
         
-        # Account Number
-        if 'account' in col_lower and ('no' in col_lower or 'number' in col_lower):
-            columns_map['account_no'] = col
-        elif col_lower in ['account no.', 'account_no', 'acc no.', 'acc_no']:
-            columns_map['account_no'] = col
+        # Account Number - more flexible matching
+        if not columns_map.get('account_no'):
+            if 'account' in col_lower and ('no' in col_lower or 'number' in col_lower or 'num' in col_lower):
+                columns_map['account_no'] = original_col
+            elif col_lower in ['account no.', 'account_no', 'acc no.', 'acc_no', 'account no', 'acc no', 'account number', 'acc number', 'accountno', 'accno']:
+                columns_map['account_no'] = original_col
         
         # Transaction Amount
-        if 'transaction' in col_lower and 'amount' in col_lower:
-            columns_map['transaction_amount'] = col
-        elif col_lower in ['transaction amount', 'txn amount', 'amount']:
-            columns_map['transaction_amount'] = col
+        if not columns_map.get('transaction_amount'):
+            if 'transaction' in col_lower and 'amount' in col_lower:
+                columns_map['transaction_amount'] = original_col
+            elif col_lower in ['transaction amount', 'txn amount', 'amount', 'trans amount', 'transaction amt', 'txn amt']:
+                columns_map['transaction_amount'] = original_col
+            elif col_lower == 'amount' and 'transaction_amount' not in columns_map:
+                columns_map['transaction_amount'] = original_col
         
         # Disputed Amount
-        if 'disputed' in col_lower and 'amount' in col_lower:
-            columns_map['disputed_amount'] = col
-        elif col_lower in ['disputed amount', 'dispute amount']:
-            columns_map['disputed_amount'] = col
+        if not columns_map.get('disputed_amount'):
+            if 'disputed' in col_lower and 'amount' in col_lower:
+                columns_map['disputed_amount'] = original_col
+            elif col_lower in ['disputed amount', 'dispute amount', 'disputed amt', 'dispute amt']:
+                columns_map['disputed_amount'] = original_col
         
         # Bank Name
-        if 'bank' in col_lower and 'name' not in columns_map.get('account_no', ''):
-            if 'fi' in col_lower or 'name' in col_lower or col_lower == 'bank':
-                columns_map['bank_name'] = col
-        elif 'bank/fi' in col_lower or 'bank name' in col_lower:
-            columns_map['bank_name'] = col
+        if not columns_map.get('bank_name'):
+            if 'bank' in col_lower and 'name' not in columns_map.get('account_no', '').lower():
+                if 'fi' in col_lower or 'name' in col_lower or col_lower == 'bank':
+                    columns_map['bank_name'] = original_col
+            elif 'bank/fi' in col_lower or 'bank name' in col_lower or col_lower in ['bank', 'bank/fis', 'bank / fi']:
+                columns_map['bank_name'] = original_col
         
         # IFSC Code
-        if 'ifsc' in col_lower:
-            columns_map['ifsc_code'] = col
+        if not columns_map.get('ifsc_code'):
+            if 'ifsc' in col_lower:
+                columns_map['ifsc_code'] = original_col
         
         # District
-        if 'district' in col_lower:
-            columns_map['district'] = col
+        if not columns_map.get('district'):
+            if 'district' in col_lower and 'state' not in col_lower:
+                columns_map['district'] = original_col
         
         # State
-        if 'state' in col_lower and 'district' not in col_lower:
-            columns_map['state'] = col
+        if not columns_map.get('state'):
+            if 'state' in col_lower and 'district' not in col_lower:
+                columns_map['state'] = original_col
         
         # Address
-        if 'address' in col_lower:
-            columns_map['address'] = col
+        if not columns_map.get('address'):
+            if 'address' in col_lower:
+                columns_map['address'] = original_col
     
     return columns_map
 
@@ -88,17 +103,33 @@ def process_single_file(uploaded_file, file_index: int) -> Tuple[Optional[pd.Dat
     """Process a single uploaded file and return standardized data."""
     try:
         df = read_excel_optimized(uploaded_file)
-        original_cols = list(df.columns)
+        
+        if len(df) == 0:
+            return None, "❌ Error: File is empty"
+        
+        # Store original columns for error reporting
+        original_columns = list(df.columns)
         
         # Auto-detect columns
-        columns_map = auto_detect_columns(df.copy())
+        columns_map = auto_detect_columns(df)
         
         # Check required columns
         required = {'account_no', 'transaction_amount'}
         missing = required - set(columns_map.keys())
         
         if missing:
-            return None, f"Missing required columns: {missing}. Detected: {list(columns_map.keys())}"
+            # Provide helpful error message with available columns
+            available_cols = ', '.join([f"'{col}'" for col in original_columns[:10]])
+            if len(original_columns) > 10:
+                available_cols += f", ... ({len(original_columns)} total)"
+            
+            missing_readable = []
+            if 'account_no' in missing:
+                missing_readable.append('Account Number')
+            if 'transaction_amount' in missing:
+                missing_readable.append('Transaction Amount')
+            
+            return None, f"❌ Error: Could not find required columns: {', '.join(missing_readable)}. Available columns: {available_cols}"
         
         # Build standardized dataframe
         data = pd.DataFrame()
@@ -156,8 +187,16 @@ def process_single_file(uploaded_file, file_index: int) -> Tuple[Optional[pd.Dat
         data = data[data['Account No.'].str.strip() != '']
         data = data[data['Account No.'] != 'nan']
         
-        return data, f"✅ {len(data):,} valid rows"
+        if len(data) == 0:
+            return None, "❌ Error: No valid data rows after filtering (all account numbers or amounts were empty/invalid)"
         
+        # Show detected columns
+        detected_info = f"✅ {len(data):,} valid rows. Detected: Account='{columns_map['account_no']}', Amount='{columns_map['transaction_amount']}'"
+        
+        return data, detected_info
+        
+    except KeyError as e:
+        return None, f"❌ Error: Column not found - {str(e)}"
     except Exception as e:
         return None, f"❌ Error: {str(e)}"
 
@@ -207,6 +246,25 @@ def render_merge_files_page():
     Upload **1 to 15 Excel files**, auto-detect columns, merge and aggregate by account number.
     Download the summary directly as Excel or CSV.
     """)
+    
+    # Show expected columns
+    with st.expander("📋 Expected Columns (Auto-Detected)", expanded=False):
+        st.markdown("""
+        **Required Columns** (at least one of these names):
+        - **Account Number**: `Account No.`, `Account No`, `Acc No.`, `Account Number`, `AccountNo`, etc.
+        - **Transaction Amount**: `Transaction Amount`, `Txn Amount`, `Amount`, `Trans Amount`, etc.
+        
+        **Optional Columns** (will be included if found):
+        - **Acknowledgement No**: `Acknowledgement No.`, `Ack No.`, `ACK No`, etc.
+        - **Bank Name**: `Bank Name`, `Bank`, `Bank/FI`, `Bank/FIs`, etc.
+        - **IFSC Code**: `IFSC Code`, `IFSC`, etc.
+        - **District**: `District`
+        - **State**: `State`
+        - **Address**: `Address`
+        - **Disputed Amount**: `Disputed Amount`, `Dispute Amount`, etc.
+        
+        💡 Column names are case-insensitive and flexible (spaces, dots, underscores are handled automatically)
+        """)
     
     st.markdown("---")
     
