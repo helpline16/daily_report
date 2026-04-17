@@ -95,11 +95,30 @@ def render_excel_merger_page():
     st.title("📎 Merge Excel Files")
     st.markdown("""
     Upload multiple Excel/CSV files and merge them into one file.
-    - All files should have the **same column structure**
-    - Files will be combined row by row (stacked vertically)
-    - Serial numbers will be automatically renumbered
+    - Files can have **different column structures** (columns will be combined)
+    - Files uploaded together will be stacked vertically
+    - Missing columns will be filled with empty values
     - Download the merged file as Excel or CSV
     """)
+    
+    st.markdown("---")
+    
+    # Merge mode selection
+    st.subheader("🔧 Merge Mode")
+    merge_mode = st.radio(
+        "How should files be merged?",
+        options=[
+            "Smart Merge (Union of all columns)",
+            "Strict Merge (Only common columns)",
+            "Keep All Columns (Fill missing with blanks)"
+        ],
+        index=0,
+        help="""
+        - **Smart Merge**: Combines all columns from all files. Missing columns filled with empty values.
+        - **Strict Merge**: Only keeps columns that exist in ALL files.
+        - **Keep All Columns**: Same as Smart Merge (recommended for different file structures).
+        """
+    )
     
     st.markdown("---")
     
@@ -178,14 +197,30 @@ def render_excel_merger_page():
                     st.session_state.merger_counter += 1
                     st.rerun()
             
-            # Check compatibility button
+            # Show column analysis
             with col_clear2:
-                if st.button("🔍 Check Columns", use_container_width=True):
-                    is_compatible, message = check_column_compatibility(st.session_state.merger_files)
-                    if is_compatible:
-                        st.success(message)
-                    else:
-                        st.error(message)
+                if st.button("🔍 Analyze Columns", use_container_width=True):
+                    all_columns = set()
+                    common_columns = None
+                    
+                    for filename, df in st.session_state.merger_files:
+                        file_cols = set(df.columns)
+                        all_columns.update(file_cols)
+                        
+                        if common_columns is None:
+                            common_columns = file_cols
+                        else:
+                            common_columns = common_columns.intersection(file_cols)
+                    
+                    st.info(f"""
+                    **Column Analysis:**
+                    - Total unique columns across all files: {len(all_columns)}
+                    - Common columns in all files: {len(common_columns)}
+                    - Files with different structures: {'Yes' if len(all_columns) > len(common_columns) else 'No'}
+                    """)
+                    
+                    if len(all_columns) > len(common_columns):
+                        st.warning("⚠️ Files have different column structures. Smart Merge recommended.")
         else:
             st.info("No files added yet")
     
@@ -194,94 +229,142 @@ def render_excel_merger_page():
         st.markdown("---")
         st.subheader("📊 Merge & Download")
         
-        # Check column compatibility first
-        is_compatible, compatibility_msg = check_column_compatibility(st.session_state.merger_files)
+        # Analyze columns
+        all_columns = set()
+        common_columns = None
+        file_column_info = []
         
-        if not is_compatible:
-            st.error(compatibility_msg)
-            st.warning("⚠️ Please fix column mismatches before merging. All files must have the same columns.")
-        else:
-            st.success(compatibility_msg)
+        for filename, df in st.session_state.merger_files:
+            file_cols = set(df.columns)
+            all_columns.update(file_cols)
+            file_column_info.append((filename, len(df.columns), list(df.columns)))
             
-            # Combine all dataframes
-            try:
-                with st.spinner("Merging files..."):
-                    # Concatenate all dataframes
+            if common_columns is None:
+                common_columns = file_cols
+            else:
+                common_columns = common_columns.intersection(file_cols)
+        
+        # Show column info
+        col_info1, col_info2, col_info3 = st.columns(3)
+        with col_info1:
+            st.metric("Total Unique Columns", len(all_columns))
+        with col_info2:
+            st.metric("Common Columns", len(common_columns))
+        with col_info3:
+            different = len(all_columns) > len(common_columns)
+            st.metric("Different Structures", "Yes" if different else "No")
+        
+        # Show detailed column breakdown
+        if len(all_columns) > len(common_columns):
+            with st.expander("📋 Column Details by File", expanded=False):
+                for filename, col_count, cols in file_column_info:
+                    st.write(f"**{filename}** ({col_count} columns):")
+                    st.write(", ".join(cols[:20]))
+                    if len(cols) > 20:
+                        st.write(f"... and {len(cols) - 20} more")
+                    st.markdown("---")
+        
+        # Combine all dataframes based on merge mode
+        try:
+            with st.spinner("Merging files..."):
+                if merge_mode == "Strict Merge (Only common columns)":
+                    # Only keep common columns
+                    if len(common_columns) == 0:
+                        st.error("❌ No common columns found across all files. Cannot use Strict Merge mode.")
+                        st.info("💡 Try 'Smart Merge' or 'Keep All Columns' mode instead.")
+                        return
+                    
+                    # Filter each dataframe to only common columns
+                    filtered_dfs = []
+                    for filename, df in st.session_state.merger_files:
+                        filtered_df = df[list(common_columns)]
+                        filtered_dfs.append(filtered_df)
+                    
+                    combined_df = pd.concat(filtered_dfs, ignore_index=True)
+                    st.info(f"ℹ️ Strict Merge: Kept only {len(common_columns)} common columns")
+                
+                else:  # Smart Merge or Keep All Columns (both do the same thing)
+                    # Concatenate with all columns (union)
                     combined_df = pd.concat(
                         [df for _, df in st.session_state.merger_files], 
-                        ignore_index=True
+                        ignore_index=True,
+                        sort=False  # Preserve column order
                     )
                     
-                    # Auto-renumber serial number columns if they exist
-                    serial_col_names = ['S No.', 'S.No.', 'S No', 'SNo', 'Serial No', 'Sr No', 'Sr. No.', 'Sl No', 'Sl. No.']
-                    for col in combined_df.columns:
-                        if col in serial_col_names or col.lower() in [s.lower() for s in serial_col_names]:
-                            combined_df[col] = range(1, len(combined_df) + 1)
-                            st.info(f"✅ Auto-renumbered column: '{col}'")
-                            break
+                    if len(all_columns) > len(common_columns):
+                        missing_cols = len(all_columns) - len(common_columns)
+                        st.success(f"✅ Smart Merge: Combined all {len(all_columns)} unique columns. {missing_cols} columns had missing values filled with blanks.")
                 
-                # Stats
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Total Files", len(st.session_state.merger_files))
-                with col2:
-                    st.metric("Total Rows", f"{len(combined_df):,}")
-                with col3:
-                    st.metric("Columns", len(combined_df.columns))
-                with col4:
-                    # Calculate total size estimate
-                    size_mb = combined_df.memory_usage(deep=True).sum() / (1024 * 1024)
-                    st.metric("Size", f"{size_mb:.1f} MB")
+                # Auto-renumber serial number columns if they exist
+                serial_col_names = ['S No.', 'S.No.', 'S No', 'SNo', 'Serial No', 'Sr No', 'Sr. No.', 'Sl No', 'Sl. No.']
+                for col in combined_df.columns:
+                    if col in serial_col_names or col.lower() in [s.lower() for s in serial_col_names]:
+                        combined_df[col] = range(1, len(combined_df) + 1)
+                        st.info(f"✅ Auto-renumbered column: '{col}'")
+                        break
+            
+            # Stats
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Files", len(st.session_state.merger_files))
+            with col2:
+                st.metric("Total Rows", f"{len(combined_df):,}")
+            with col3:
+                st.metric("Final Columns", len(combined_df.columns))
+            with col4:
+                # Calculate total size estimate
+                size_mb = combined_df.memory_usage(deep=True).sum() / (1024 * 1024)
+                st.metric("Size", f"{size_mb:.1f} MB")
+            
+            # Show breakdown by file
+            with st.expander("📋 Files Breakdown", expanded=False):
+                breakdown_data = []
+                for filename, df in st.session_state.merger_files:
+                    breakdown_data.append({
+                        'File Name': filename,
+                        'Rows': len(df),
+                        'Columns': len(df.columns)
+                    })
+                breakdown_df = pd.DataFrame(breakdown_data)
+                st.dataframe(breakdown_df, use_container_width=True, hide_index=True)
+            
+            # Preview
+            with st.expander("📋 Preview Merged Data (First 50 rows)", expanded=False):
+                st.dataframe(combined_df.head(50), use_container_width=True)
+            
+            # Download buttons
+            st.markdown("### ⬇️ Download Merged File")
+            
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            
+            download_col1, download_col2 = st.columns(2)
+            
+            with download_col1:
+                with st.spinner("Generating Excel file..."):
+                    excel_bytes = generate_merged_excel(combined_df)
+                st.download_button(
+                    label=f"📊 Download Excel ({len(combined_df):,} rows)",
+                    data=excel_bytes,
+                    file_name=f"merged_data_{timestamp}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    type="primary"
+                )
+            
+            with download_col2:
+                csv_bytes = generate_merged_csv(combined_df)
+                st.download_button(
+                    label=f"📄 Download CSV ({len(combined_df):,} rows)",
+                    data=csv_bytes,
+                    file_name=f"merged_data_{timestamp}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
                 
-                # Show breakdown by file
-                with st.expander("📋 Files Breakdown", expanded=False):
-                    breakdown_data = []
-                    for filename, df in st.session_state.merger_files:
-                        breakdown_data.append({
-                            'File Name': filename,
-                            'Rows': len(df),
-                            'Columns': len(df.columns)
-                        })
-                    breakdown_df = pd.DataFrame(breakdown_data)
-                    st.dataframe(breakdown_df, use_container_width=True, hide_index=True)
-                
-                # Preview
-                with st.expander("📋 Preview Merged Data (First 50 rows)", expanded=False):
-                    st.dataframe(combined_df.head(50), use_container_width=True)
-                
-                # Download buttons
-                st.markdown("### ⬇️ Download Merged File")
-                
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                
-                download_col1, download_col2 = st.columns(2)
-                
-                with download_col1:
-                    with st.spinner("Generating Excel file..."):
-                        excel_bytes = generate_merged_excel(combined_df)
-                    st.download_button(
-                        label=f"📊 Download Excel ({len(combined_df):,} rows)",
-                        data=excel_bytes,
-                        file_name=f"merged_data_{timestamp}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True,
-                        type="primary"
-                    )
-                
-                with download_col2:
-                    csv_bytes = generate_merged_csv(combined_df)
-                    st.download_button(
-                        label=f"📄 Download CSV ({len(combined_df):,} rows)",
-                        data=csv_bytes,
-                        file_name=f"merged_data_{timestamp}.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
-                    
-            except Exception as e:
-                st.error(f"❌ Error merging files: {str(e)}")
-                st.exception(e)
-                st.info("💡 Make sure all files have compatible column structures and valid data.")
+        except Exception as e:
+            st.error(f"❌ Error merging files: {str(e)}")
+            st.exception(e)
+            st.info("💡 Try a different merge mode or check your files for compatibility issues.")
     
     elif len(st.session_state.merger_files) == 1:
         st.markdown("---")
@@ -295,20 +378,31 @@ def render_excel_merger_page():
         with st.expander("💡 Usage Tips", expanded=False):
             st.markdown("""
             **How to use:**
-            1. Upload your first Excel/CSV file
-            2. Click "Add This File" button
-            3. Upload and add more files (minimum 2 files)
-            4. Click "Check Columns" to verify compatibility
-            5. Download the merged file
+            1. Select your merge mode (Smart Merge recommended for different file structures)
+            2. Upload your first Excel/CSV file
+            3. Click "Add This File" button
+            4. Upload and add more files (minimum 2 files)
+            5. Click "Analyze Columns" to see column compatibility
+            6. Download the merged file
+            
+            **Merge Modes:**
+            - **Smart Merge**: Best for files with different columns. Combines all columns and fills missing values with blanks.
+            - **Strict Merge**: Only keeps columns that exist in ALL files. Use when you want only common data.
+            - **Keep All Columns**: Same as Smart Merge.
             
             **Important:**
-            - All files must have the same column names
-            - Column order doesn't matter
-            - Files will be stacked vertically (rows combined)
+            - Files can have completely different column structures
+            - Smart Merge will handle missing columns automatically
             - Serial numbers (S No.) will be auto-renumbered
             - Empty files will be rejected
             
             **Supported formats:**
             - Excel: .xlsx, .xls
             - CSV: .csv (UTF-8 and Latin-1 encoding)
+            
+            **Examples:**
+            - File 1 has columns: Name, Age, City
+            - File 2 has columns: Name, Salary, Department
+            - Smart Merge result: Name, Age, City, Salary, Department (with blanks where data is missing)
+            - Strict Merge result: Name only (the only common column)
             """)
