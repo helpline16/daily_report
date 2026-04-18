@@ -139,6 +139,7 @@ def render_sidebar():
             'mysql_database_viewer': '🗄️ MySQL Database Viewer',
             'ai_sql_assistant': '🤖 AI SQL Assistant',
             'distinct_account_pivot': '📊 Distinct Account Pivot',
+            'view_database': '🗄️ View Database'
         }
         
         for page_key, page_name in pages.items():
