@@ -117,9 +117,6 @@ def render_sidebar():
         # Page navigation
         pages = {
             'upload': '� Aggregate by Account',
-            'mapping': '🔗 Column Mapping',
-            'processing': '⚙️ Processing',
-            'results': '📊 Results Dashboard',
             'district_download': '📍 District Data Download',
             'districtwise': '📊 Split Data by Column',
             'smart_district_split': '🗺️ Smart District Split',
@@ -142,26 +139,12 @@ def render_sidebar():
             'mysql_database_viewer': '🗄️ MySQL Database Viewer',
             'ai_sql_assistant': '🤖 AI SQL Assistant',
             'distinct_account_pivot': '📊 Distinct Account Pivot',
-            'view_database': '🗄️ View Database'
         }
         
         for page_key, page_name in pages.items():
-            # Determine if page should be enabled
-            enabled = True
-            if page_key == 'mapping' and st.session_state.uploaded_df is None:
-                enabled = False
-            elif page_key == 'processing' and st.session_state.column_mapping is None:
-                enabled = False
-            elif page_key == 'results' and st.session_state.aggregated_accounts is None:
-                enabled = False
-            # district_download, excel_merger, call_notice_merge, view_database are always enabled
-            
-            if enabled:
-                if st.button(page_name, key=f"nav_{page_key}", use_container_width=True):
-                    st.session_state.current_page = page_key
-                    st.rerun()
-            else:
-                st.button(page_name, key=f"nav_{page_key}", use_container_width=True, disabled=True)
+            if st.button(page_name, key=f"nav_{page_key}", use_container_width=True):
+                st.session_state.current_page = page_key
+                st.rerun()
         
         st.markdown("---")
         
@@ -1509,11 +1492,8 @@ def main():
     
     if page == 'upload':
         render_upload_page()
-    elif page == 'mapping':
         render_mapping_page()
-    elif page == 'processing':
         render_processing_page()
-    elif page == 'results':
         render_results_page()
     elif page == 'district_download':
         render_district_download_page()
