@@ -124,7 +124,7 @@ def render_sidebar():
             'filter_by_entry_count': '🔢 Filter by Entry Count',
             'filter_by_unique_ack': '🏦 Filter by Entry Count (Unique ACK Only)',
             'non_gujarat_filter': '🗺️ Non-Gujarat Filter',
-            'amount_matcher': '💰 Amount Matcher',
+            'amount_matcher': '💰 Add Disputed Amount to Pending/Unattended ZIP File',
             'bank_ack_pivot': '🏦 Bank ACK Pivot',
             'ack_list_pivot': '📋 ACK List Pivot',
             'automated_workflow': '🔄 Automated Workflow',
