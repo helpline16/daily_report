@@ -134,7 +134,7 @@ def render_sidebar():
             'transaction_matcher': '🔄 Bring Disputed Amount to Unattended File (From Status-Wise Report)',
             'disputed_amount_matcher': '💰 Bring Disputed Amount to Any File with ACK No., Account Number & Transaction Amount',
             'money_transfer_dispute': '💸 Bring Disputed Amount to Money Transfer File',
-            'ack_bank_consolidator': '📊 Acknowledgement Number & Bank-Wise Amount Consolidation',
+            'ack_bank_consolidator': '📊 Acknowledgement Number & Bank-Wise Amount Consolidator',
             'bulk_mysql_import': '📊 Bulk MySQL Import',
             'mysql_database_viewer': '🗄️ MySQL Database Viewer',
             'ai_sql_assistant': '🤖 AI SQL Assistant',
