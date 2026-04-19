@@ -181,21 +181,15 @@ def render_upload_page():
     if st.session_state.uploaded_df is not None:
         st.success(f"✅ Data already loaded: {len(st.session_state.uploaded_df)} rows from {st.session_state.filename}")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("✅ Proceed to Column Mapping", type="primary", use_container_width=True):
-                st.session_state.current_page = 'mapping'
-                st.rerun()
-        with col2:
-            if st.button("🔄 Upload New Files", use_container_width=True):
-                st.session_state.uploaded_df = None
-                st.session_state.filename = None
-                st.session_state.column_mapping = None
-                st.session_state.cleaned_df = None
-                st.session_state.validation_result = None
-                st.session_state.aggregated_accounts = None
-                st.session_state.processing_stats = None
-                st.rerun()
+        if st.button("🔄 Upload New Files", use_container_width=True):
+            st.session_state.uploaded_df = None
+            st.session_state.filename = None
+            st.session_state.column_mapping = None
+            st.session_state.cleaned_df = None
+            st.session_state.validation_result = None
+            st.session_state.aggregated_accounts = None
+            st.session_state.processing_stats = None
+            st.rerun()
         
         # Show preview of current data
         st.markdown("---")
@@ -418,7 +412,6 @@ def render_mapping_page():
             )
             
             st.session_state.column_mapping = final_mapping
-            st.session_state.current_page = 'processing'
             st.rerun()
 
 
@@ -443,21 +436,14 @@ def render_processing_page():
     # Check if already processed
     if st.session_state.aggregated_accounts is not None:
         st.success("✅ Data has already been processed!")
-        st.info("Click 'View Results' to see the dashboard, or 'Reprocess' to process again.")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("View Results", type="primary", use_container_width=True):
-                st.session_state.current_page = 'results'
-                st.rerun()
-        with col2:
-            if st.button("Reprocess Data", use_container_width=True):
-                st.session_state.aggregated_accounts = None
-                st.session_state.processing_stats = None
-                st.session_state.cleaned_df = None
-                st.session_state.validation_result = None
-                st.session_state.processing_logs = []
-                st.rerun()
+        if st.button("Reprocess Data", use_container_width=True):
+            st.session_state.aggregated_accounts = None
+            st.session_state.processing_stats = None
+            st.session_state.cleaned_df = None
+            st.session_state.validation_result = None
+            st.session_state.processing_logs = []
+            st.rerun()
         return
     
     # Processing controls
@@ -553,11 +539,6 @@ def render_processing_page():
                 st.subheader("📜 Processing Log")
                 log_text = "\n".join(logs)
                 st.text_area("Logs", value=log_text, height=200, disabled=True)
-            
-            # Proceed button
-            if st.button("View Results Dashboard", type="primary"):
-                st.session_state.current_page = 'results'
-                st.rerun()
                 
         except Exception as e:
             logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ERROR: {str(e)}")
@@ -1493,9 +1474,22 @@ def main():
     
     if page == 'upload':
         render_upload_page()
-        render_mapping_page()
-        render_processing_page()
-        render_results_page()
+        
+        # Show mapping if file is uploaded
+        if st.session_state.uploaded_df is not None:
+            st.markdown("---")
+            render_mapping_page()
+        
+        # Show processing if mapping is done
+        if st.session_state.column_mapping is not None:
+            st.markdown("---")
+            render_processing_page()
+        
+        # Show results if processing is done
+        if st.session_state.aggregated_accounts is not None:
+            st.markdown("---")
+            render_results_page()
+    
     elif page == 'district_download':
         render_district_download_page()
     elif page == 'districtwise':
