@@ -41,6 +41,7 @@ from src.disputed_amount_matcher import render_disputed_amount_matcher_page
 from src.money_transfer_dispute import render_money_transfer_dispute_page
 from src.ack_bank_consolidator import render_ack_bank_consolidator_page
 from src.database_service import DatabaseService
+from src.report_service import ReportService
 from src.districtwise import render_districtwise_page
 from src.non_gujarat_filter import render_non_gujarat_filter_page
 from src.column_selector import render_column_selector_page
@@ -127,6 +128,7 @@ def render_sidebar():
             'amount_matcher': '💰 Add Disputed Amount to Pending/Unattended ZIP File',
             'bank_ack_pivot': '🏦 Bank ACK Pivot',
             'ack_list_pivot': '📋 ACK List Pivot',
+            'report_generator': '📊 Account & Hold Amount Report Generator',
             'automated_workflow': '🔄 Automated Workflow',
             'column_selector': '📋 Filter Excel File with the Columns You Need',
             'excel_merger': '📎 Merge Excel Files',
@@ -1461,6 +1463,202 @@ def render_view_database_page():
         db_service.disconnect()
 
 
+def render_report_generator_page():
+    """Render the Account & Hold Amount Report Generator page."""
+    st.title("📊 Account & Hold Amount Report Generator")
+    st.markdown("Generate professional reports with Account details, Hold amounts, and Unattended complaints")
+    
+    st.markdown("---")
+    
+    # Instructions
+    with st.expander("📖 Instructions", expanded=True):
+        st.markdown("""
+        **This tool generates a comprehensive Excel report with three sheets:**
+        
+        1. **PUT ON HOLD** - Bank-wise hold amounts
+        2. **ACCOUNT** - Bank-wise account count (distinct ACK numbers)
+        3. **Complaint Un Attended** - Bank/Wallet/Merchant-wise unattended complaints
+        
+        **Required Files:**
+        - **All Layer / Layerwise File**: Excel file with columns including 'Acknowledgement No.' and 'Bank/FIs'
+        - **Hold File**: CSV/Excel file with bank names and hold amounts
+        - **Unattended File**: CSV/Excel file with bank/wallet/merchant names and unattended counts
+        
+        **Output Format:**
+        - Sky blue title rows
+        - Light yellow headers
+        - Professional table format with borders
+        - Grand total rows in bold with sky blue background
+        """)
+    
+    st.markdown("---")
+    
+    # File uploads
+    st.subheader("📤 Upload Files")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("**1️⃣ All Layer / Layerwise File**")
+        layerwise_file = st.file_uploader(
+            "Upload Excel file",
+            type=['xlsx', 'xls'],
+            key="layerwise_upload",
+            help="File containing Acknowledgement No. and Bank/FIs columns"
+        )
+    
+    with col2:
+        st.markdown("**2️⃣ Hold File**")
+        hold_file = st.file_uploader(
+            "Upload CSV or Excel file",
+            type=['csv', 'xlsx', 'xls'],
+            key="hold_upload",
+            help="File containing bank names and hold amounts"
+        )
+    
+    with col3:
+        st.markdown("**3️⃣ Unattended File**")
+        unattend_file = st.file_uploader(
+            "Upload CSV or Excel file",
+            type=['csv', 'xlsx', 'xls'],
+            key="unattend_upload",
+            help="File containing bank/wallet/merchant names and unattended counts"
+        )
+    
+    # Check if all files are uploaded
+    if not all([layerwise_file, hold_file, unattend_file]):
+        st.info("👆 Please upload all three files to generate the report")
+        return
+    
+    st.markdown("---")
+    
+    # Generate report button
+    if st.button("🚀 Generate Report", type="primary", use_container_width=True):
+        try:
+            with st.spinner("📊 Generating professional report..."):
+                # Read files
+                st.info("📖 Reading files...")
+                
+                # Read layerwise file
+                layerwise_df = pd.read_excel(layerwise_file)
+                st.success(f"✅ Layerwise file loaded: {len(layerwise_df)} rows")
+                
+                # Read hold file
+                if hold_file.name.endswith('.csv'):
+                    # Try different encodings and error handling for CSV
+                    try:
+                        hold_df = pd.read_csv(hold_file, encoding='utf-8', on_bad_lines='skip')
+                    except:
+                        hold_file.seek(0)
+                        hold_df = pd.read_csv(hold_file, encoding='latin-1', on_bad_lines='skip')
+                else:
+                    hold_df = pd.read_excel(hold_file)
+                st.success(f"✅ Hold file loaded: {len(hold_df)} rows")
+                
+                # Read unattend file
+                if unattend_file.name.endswith('.csv'):
+                    # Try different encodings and error handling for CSV
+                    try:
+                        unattend_df = pd.read_csv(unattend_file, encoding='utf-8', on_bad_lines='skip')
+                    except:
+                        unattend_file.seek(0)
+                        unattend_df = pd.read_csv(unattend_file, encoding='latin-1', on_bad_lines='skip')
+                else:
+                    unattend_df = pd.read_excel(unattend_file)
+                st.success(f"✅ Unattended file loaded: {len(unattend_df)} rows")
+                
+                # Initialize report service
+                report_service = ReportService()
+                
+                # Generate report
+                st.info("🔨 Processing data and generating report...")
+                report_bytes, cleaning_log, grand_totals = report_service.generate_complete_report(
+                    layerwise_df=layerwise_df,
+                    hold_df=hold_df,
+                    unattend_df=unattend_df
+                )
+                
+                st.success("✅ Report generated successfully!")
+                
+                # Show cleaning log
+                with st.expander("📋 Data Cleaning Log (Click to view)", expanded=False):
+                    for log_entry in cleaning_log:
+                        st.text(log_entry)
+                
+                # Show Grand Totals Summary BEFORE download button
+                st.markdown("---")
+                st.subheader("📊 Grand Totals Summary")
+                
+                # Display the exact grand totals from the Excel sheets
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric(
+                        label="💰 Total Hold Amount",
+                        value=f"₹ {grand_totals['hold_amount']:,.2f}"
+                    )
+                
+                with col2:
+                    st.metric(
+                        label="🏦 Total Account Count",
+                        value=f"{grand_totals['account_count']:,}"
+                    )
+                
+                with col3:
+                    st.metric(
+                        label="📋 Total Unattended Complaints",
+                        value=f"{grand_totals['unattended_count']:,}"
+                    )
+                
+                # Generate filename with YESTERDAY's date
+                from datetime import timedelta
+                yesterday = datetime.now() - timedelta(days=1)
+                current_date = yesterday.strftime("%d-%m-%Y")
+                filename = f"REPORT ACCOUNT AND HOLD AMOUNT DATA {current_date}.xlsx"
+                
+                # Download button
+                st.markdown("---")
+                st.subheader("📥 Download Report")
+                
+                st.download_button(
+                    label="⬇️ Download Excel Report",
+                    data=report_bytes,
+                    file_name=filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+                
+                st.success(f"✅ Report ready: **{filename}**")
+                
+                # Show preview of generated reports
+                st.markdown("---")
+                st.subheader("👀 Report Preview")
+                
+                # Read the generated report for preview
+                preview_wb = pd.ExcelFile(BytesIO(report_bytes))
+                
+                tab1, tab2, tab3 = st.tabs(["PUT ON HOLD", "ACCOUNT", "Complaint Un Attended"])
+                
+                with tab1:
+                    hold_preview = pd.read_excel(BytesIO(report_bytes), sheet_name="PUT ON HOLD", skiprows=1)
+                    st.dataframe(hold_preview.head(20), use_container_width=True)
+                    st.caption(f"Total rows: {len(hold_preview)-1}")  # -1 for grand total row
+                
+                with tab2:
+                    account_preview = pd.read_excel(BytesIO(report_bytes), sheet_name="ACCOUNT", skiprows=1)
+                    st.dataframe(account_preview.head(20), use_container_width=True)
+                    st.caption(f"Total rows: {len(account_preview)-1}")  # -1 for grand total row
+                
+                with tab3:
+                    unattend_preview = pd.read_excel(BytesIO(report_bytes), sheet_name=" Complaint Un Attended", skiprows=1)
+                    st.dataframe(unattend_preview.head(20), use_container_width=True)
+                    st.caption(f"Total rows: {len(unattend_preview)-1}")  # -1 for grand total row
+                
+        except Exception as e:
+            st.error(f"❌ Error generating report: {str(e)}")
+            st.exception(e)
+
+
 def main():
     """Main application entry point."""
     # Initialize session state
@@ -1510,6 +1708,8 @@ def main():
         render_bank_ack_pivot_page()
     elif page == 'ack_list_pivot':
         render_ack_list_pivot_page()
+    elif page == 'report_generator':
+        render_report_generator_page()
     elif page == 'automated_workflow':
         render_automated_workflow_page()
     elif page == 'column_selector':

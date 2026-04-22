@@ -304,6 +304,30 @@ PAGE_INFO = {
         - Excel/CSV export
         - No SQL knowledge required
         '''
+    },
+    'report_generator': {
+        'title': '📊 Account & Hold Amount Report Generator',
+        'description': 'Generate professional reports with Account, Hold Amount, and Unattended data',
+        'details': '''
+        **Report Generator Features:**
+        - Three comprehensive sheets in one Excel file
+        - PUT ON HOLD: Bank-wise hold amounts with grand total
+        - ACCOUNT: Bank-wise account count (distinct ACK numbers)
+        - Complaint Un Attended: Bank/Wallet/Merchant-wise unattended complaints
+        
+        **Professional Formatting:**
+        - Sky blue title rows
+        - Light yellow headers
+        - Table format with borders
+        - Grand total rows in bold with sky blue background
+        
+        **Data Processing:**
+        - Automatic bank name filtering
+        - Removal of "other/others/othar" entries
+        - Zero value filtering
+        - Distinct count calculations
+        - Bank-wise aggregations
+        '''
     }
 }
 
