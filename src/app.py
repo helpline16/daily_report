@@ -3,6 +3,8 @@ Fraud Analysis Web Application.
 
 A Streamlit-based web application for law enforcement cybercrime departments
 to analyze and consolidate fraud transaction data from Excel files.
+
+Last Updated: 2026-04-27 - Account report now uses distinct Account Numbers
 """
 
 import sys
