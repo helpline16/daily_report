@@ -60,6 +60,7 @@ from src.ui_styling import apply_custom_css, render_page_header_with_info
 from src.smart_district_split import render_smart_district_split_page
 from src.ifsc_pincode_district_split import render_ifsc_pincode_district_split_page
 from src.distinct_account_pivot import render_distinct_account_pivot_page
+from src.top_10_suspect_accounts import render_top_10_suspect_accounts_page
 
 # Page configuration
 st.set_page_config(
@@ -121,6 +122,7 @@ def render_sidebar():
         pages = {
             'upload': '� Aggregate by Account',
             'district_download': '📍 Victim-Suspect Mapping & Filter by State/District',
+            'top_10_suspect': '🎯 Top 10 Suspect Accounts from Layer 1',
             'districtwise': '📊 Split Data by Column',
             'smart_district_split': '🗺️ Smart District Split',
             'ifsc_pincode_split': '🏦 Split Excel Districtwise by IFSC/PIN Code',
@@ -1715,6 +1717,8 @@ def main():
     
     elif page == 'district_download':
         render_district_download_page()
+    elif page == 'top_10_suspect':
+        render_top_10_suspect_accounts_page()
     elif page == 'districtwise':
         render_districtwise_page()
     elif page == 'smart_district_split':
